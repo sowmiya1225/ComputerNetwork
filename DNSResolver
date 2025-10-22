@@ -1,0 +1,137 @@
+package exercise;
+
+	import java.net.*;
+	import java.io.*;
+	import java.util.Scanner;
+
+	public class DNSResolver {
+	    public static void main(String[] args) {
+	        Scanner sc = new Scanner(System.in);
+
+	        System.out.print("Enter hostname to resolve: ");
+	        String hostname = sc.nextLine();
+
+	        System.out.print("Enter DNS server (default 8.8.8.8): ");
+	        String dnsServer = sc.nextLine();
+	        if (dnsServer.trim().isEmpty()) {
+	            dnsServer = "8.8.8.8"; // Default to Google DNS
+	        }
+
+	        sc.close();
+
+	        try {
+	            System.out.println("\n--- Attempting DNS resolution using UDP socket ---");
+	            String ip = resolveUsingUDP(hostname, dnsServer);
+	            System.out.println("\nHostname: " + hostname);
+	            System.out.println(" Resolved IP: " + ip);
+	        } catch (SecurityException | SocketException e) {
+	            System.out.println("\n UDP access not permitted in this environment.");
+	            System.out.println("Using Java built-in resolver instead...");
+
+	            try {
+	                InetAddress inet = InetAddress.getByName(hostname);
+	                System.out.println("\n Hostname: " + hostname);
+	                System.out.println("Resolved IP: " + inet.getHostAddress());
+	            } catch (Exception ex) {
+	                System.out.println(" DNS resolution failed: " + ex.getMessage());
+	            }
+	        } catch (Exception e) {
+	            System.out.println(" Error: " + e.getMessage());
+	        }
+	    }
+
+	    // Function to perform DNS resolution using UDP socket
+	    private static String resolveUsingUDP(String host, String dnsServer) throws IOException {
+	        int dnsPort = 53;
+	        DatagramSocket socket = new DatagramSocket();
+	        socket.setSoTimeout(5000); // 5 seconds timeout
+
+	        // Build query
+	        byte[] query = buildDNSQuery(host);
+
+	        // Send packet
+	        InetAddress dnsAddr = InetAddress.getByName(dnsServer);
+	        DatagramPacket request = new DatagramPacket(query, query.length, dnsAddr, dnsPort);
+	        socket.send(request);
+
+	        // Receive response
+	        byte[] buffer = new byte[512];
+	        DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+	        socket.receive(response);
+	        socket.close();
+
+	        // Parse and return IP
+	        return parseDNSResponse(buffer, response.getLength());
+	    }
+
+	    // Build minimal DNS query packet
+	    private static byte[] buildDNSQuery(String host) throws IOException {
+	        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+	        // Transaction ID
+	        baos.write(0x12);
+	        baos.write(0x34);
+
+	        // Flags: standard query
+	        baos.write(0x01);
+	        baos.write(0x00);
+
+	        // Questions = 1
+	        baos.write(0x00);
+	        baos.write(0x01);
+
+	        // Answer RRs, Authority RRs, Additional RRs = 0
+	        for (int i = 0; i < 6; i++) baos.write(0x00);
+
+	        // Encode hostname
+	        String[] labels = host.split("\\.");
+	        for (String label : labels) {
+	            baos.write(label.length());
+	            baos.write(label.getBytes());
+	        }
+	        baos.write(0x00); // end of name
+
+	        // Type A (IPv4)
+	        baos.write(0x00);
+	        baos.write(0x01);
+
+	        // Class IN (Internet)
+	        baos.write(0x00);
+	        baos.write(0x01);
+
+	        return baos.toByteArray();
+	    }
+
+	    // Parse DNS response and extract first IPv4 address
+	    private static String parseDNSResponse(byte[] buffer, int length) {
+	        try {
+	            int pos = 12; // Skip header
+
+	            // Skip question section
+	            while (buffer[pos] != 0) pos += buffer[pos] + 1;
+	            pos += 5; // null label + type + class
+
+	            // Parse answers
+	            while (pos < length - 12) {
+	                pos += 2; // name pointer
+	                int type = ((buffer[pos] & 0xFF) << 8) | (buffer[pos + 1] & 0xFF);
+	                pos += 8; // type + class + TTL
+	                int dataLen = ((buffer[pos] & 0xFF) << 8) | (buffer[pos + 1] & 0xFF);
+	                pos += 2;
+
+	                // If A record (IPv4)
+	                if (type == 1 && dataLen == 4) {
+	                    String ip = (buffer[pos] & 0xFF) + "." +
+	                                (buffer[pos + 1] & 0xFF) + "." +
+	                                (buffer[pos + 2] & 0xFF) + "." +
+	                                (buffer[pos + 3] & 0xFF);
+	                    return ip;
+	                }
+	                pos += dataLen;
+	            }
+	        } catch (Exception e) {
+	            return "Could not parse DNS response";
+	        }
+	        return "No IPv4 record found";
+	    }
+	}
