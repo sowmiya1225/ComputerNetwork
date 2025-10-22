@@ -1,0 +1,19 @@
+	import java.io.*;
+	import java.net.*;
+
+	public class EchoClient {
+	    public static void main(String[] args) throws IOException {
+	        Socket socket = new Socket("localhost", 5000);
+	        BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+	        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+	        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+	        System.out.println("Enter messages (type 'exit' to quit): ");
+	        String input;
+	        while (!(input = userInput.readLine()).equalsIgnoreCase("exit")) {
+	            out.println(input);
+	            System.out.println(in.readLine());
+	        }
+	        socket.close();
+	    }
+	}
