@@ -1,0 +1,36 @@
+
+	import java.util.*;
+
+	public class SlidingWindow {
+	    public static void main(String[] args) {
+	        Scanner sc = new Scanner(System.in);
+
+	        System.out.print("Enter total number of frames: ");
+	        int totalFrames = sc.nextInt();
+
+	        System.out.print("Enter window size: ");
+	        int windowSize = sc.nextInt();
+
+	        int sent = 0;
+
+	        while (sent < totalFrames) {
+	            System.out.print("\nSender: Sending frames ");
+	            for (int i = sent; i < sent + windowSize && i < totalFrames; i++) {
+	                System.out.print(i + " ");
+	            }
+	            System.out.println();
+
+	            // Simulate acknowledgments
+	            int ack = sent + windowSize;
+	            if (ack > totalFrames) ack = totalFrames;
+
+	            System.out.println("Receiver: Acknowledged up to frame " + (ack - 1));
+	            sent = ack; // Slide window
+	        }
+
+	        System.out.println("\nAll frames sent successfully!");
+	        sc.close();
+	    }
+	}
+
+	
